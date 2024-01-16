@@ -5,6 +5,7 @@ public class ECommerceStore implements Runnable{
     private static final double SHIRT_COST_FOR_COMPANY = 14.0;
     private static final double DESIGN_COST = 2.0;
     private static final double HOODIE_COST = 3.0;
+    private static final double SHIRT_PRICE = 40.0;
     private static double totalRevenue = 0.0;
     private static double totalProfit = 0.0;
     private final String shirtSize;
@@ -22,33 +23,34 @@ public class ECommerceStore implements Runnable{
         this.paymentStrategy = paymentStrategy;
     }
 
-    private double applyTransactionFee(double amount) {
-        double transactionFee = paymentStrategy.calculateTransactionFee(amount);
-        return amount - transactionFee;
+    private double applyTransactionFee() {
+        return paymentStrategy.calculateTransactionFee(ECommerceStore.SHIRT_PRICE);
     }
 
-    private double calculateShirtPrice() {
-        double shirtPrice = 40.0; // Base price for a shirt that customer pays
+    private double calculateProfitPrice() {
+        double profitForCompany = SHIRT_PRICE - SHIRT_COST_FOR_COMPANY;
 
         if (withDesign) {
-            shirtPrice += DESIGN_COST;
+            profitForCompany -= DESIGN_COST;
         }
 
         if (withHoodie) {
-            shirtPrice += HOODIE_COST;
+            profitForCompany -= HOODIE_COST;
         }
 
-        return shirtPrice;
+        profitForCompany -= applyTransactionFee();
+
+        return profitForCompany;
     }
 
-    private synchronized static void updateTotals(double totalAmount, double shirtPrice) {
-        totalRevenue += shirtPrice;
-        totalProfit += totalAmount - SHIRT_COST_FOR_COMPANY;
+    private synchronized static void updateTotals(double shirtPriceForCompany) {
+        totalRevenue += SHIRT_PRICE;
+        totalProfit += shirtPriceForCompany;
     }
 
     private synchronized static void updateProfitPerSize(String shirtSize, double totalAmount) {
         profitPerSize.putIfAbsent(shirtSize, 0.0);
-        profitPerSize.computeIfPresent(shirtSize, (key, oldValue) -> oldValue + (totalAmount - SHIRT_COST_FOR_COMPANY));
+        profitPerSize.computeIfPresent(shirtSize, (key, oldValue) -> oldValue + (totalAmount));
     }
 
     public static double getTotalProfit() {
@@ -65,10 +67,9 @@ public class ECommerceStore implements Runnable{
 
     @Override
     public void run() {
-        double shirtPrice = calculateShirtPrice();
-        double totalAmount = applyTransactionFee(shirtPrice);
+        double profitForCompany = calculateProfitPrice();
 
-        updateTotals(totalAmount, shirtPrice);
-        updateProfitPerSize(shirtSize, totalAmount);
+        updateTotals(profitForCompany);
+        updateProfitPerSize(shirtSize, profitForCompany);
     }
 }
